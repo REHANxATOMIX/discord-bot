@@ -3,6 +3,7 @@ from discord.ext import commands
 import instaloader
 import random
 from collections import defaultdict
+import os
 
 # Initialize the bot with the command prefix
 intents = discord.Intents.default()
@@ -127,4 +128,5 @@ async def of(ctx, *, username: str):
     else:
         await initial_message.edit(content=f"❌ Profile {username} not found or an error occurred.")
 
-bot.run("MTI3NDMwMzcyNzEyMDk0NTI3Mw.G6-dH6.l5WdJIBnZJDo64tVguOc79MN2orJiiOock--BA")
+# Run the bot using the TOKEN environment variable
+bot.run(os.getenv("TOKEN"))
