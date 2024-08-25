@@ -4,18 +4,18 @@ import instaloader
 import random
 from collections import defaultdict
 import os
-
 from flask import Flask
+import threading
 
+# Flask setup
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Hello, Flask is running!"
 
-if __name__ == '__main__':
+def run_flask():
     app.run(host='0.0.0.0', port=5000, debug=True)
-
 
 # Initialize the bot with the command prefix
 intents = discord.Intents.default()
@@ -140,5 +140,11 @@ async def of(ctx, *, username: str):
     else:
         await initial_message.edit(content=f"❌ Profile {username} not found or an error occurred.")
 
-# Run the bot using the TOKEN environment variable
-bot.run(os.getenv("TOKEN"))
+def run_discord_bot():
+    bot.run(os.getenv("TOKEN"))
+
+if __name__ == '__main__':
+    # Run the Flask app in a separate thread
+    threading.Thread(target=run_flask).start()
+    # Run the Discord bot
+    run_discord_bot()
