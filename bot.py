@@ -1,102 +1,26 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import instaloader
 import random
 from collections import defaultdict
 import os
-from flask import Flask
-import threading
-
-# Flask setup
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Hello, Flask is running!"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=5000, debug=True)
 
 # Initialize the bot with the command prefix
 intents = discord.Intents.default()
-intents.message_content = True  # Ensure you have message content intent enabled
+intents.message_content = True
 bot = commands.Bot(command_prefix="!sr ", intents=intents)
 
-# List of keywords for different report categories
-report_keywords = {
-    "HATE": ["devil", "666", "savage", "love", "hate", "followers", "selling", "sold", "seller", "dick", "ban", "banned", "free", "method", "paid"],
-    "SELF": ["suicide", "blood", "death", "dead", "kill myself"],
-    "BULLY": ["@"],
-    "VIOLENT": ["hitler", "osama bin laden", "guns", "soldiers", "masks", "flags"],
-    "ILLEGAL": ["drugs", "cocaine", "plants", "trees", "medicines"],
-    "PRETENDING": ["verified", "tick"],
-    "NUDITY": ["nude", "sex", "send nudes"],
-    "SPAM": ["phone number"]
-}
+# A simple loop that runs every 5 minutes to keep the bot alive
+@tasks.loop(minutes=5)
+async def keep_alive():
+    print("Bot is alive!")
 
-def check_keywords(text, keywords):
-    return any(keyword in text.lower() for keyword in keywords)
+@bot.event
+async def on_ready():
+    keep_alive.start()  # Start the loop when the bot is ready
+    print(f'Bot connected as {bot.user}')
 
-def analyze_profile(profile_info):
-    # Special case for the username 'test.1234100'
-    if profile_info.get("username", "") == "test.1234100":
-        return {
-            "SELF": "3x - Self",
-            "NUDITY": "2x - Nude"
-        }
-
-    reports = defaultdict(int)
-
-    # Profile attributes to check
-    profile_texts = [
-        profile_info.get("username", ""),
-        profile_info.get("biography", ""),
-        " ".join(["Example post about selling stuff", "Another post mentioning @someone", "Nude picture..."])  # Example posts
-    ]
-
-    for text in profile_texts:
-        for category, keywords in report_keywords.items():
-            if check_keywords(text, keywords):
-                reports[category] += 1
-
-    # Generate suggestions based on found issues
-    if reports:
-        num_categories = min(len(reports), random.randint(2, 5))
-        selected_categories = random.sample(list(reports.keys()), num_categories)
-    else:
-        # Use random suggestions if no specific issues are found
-        all_categories = list(report_keywords.keys())
-        num_categories = random.randint(2, 5)
-        selected_categories = random.sample(all_categories, num_categories)
-
-    unique_counts = random.sample(range(1, 6), len(selected_categories))
-    formatted_reports = {
-        category: f"{count}x - {category}" for category, count in zip(selected_categories, unique_counts)
-    }
-
-    return formatted_reports
-
-async def get_public_instagram_info(username):
-    L = instaloader.Instaloader()
-
-    try:
-        profile = instaloader.Profile.from_username(L.context, username)
-        info = {
-            "username": profile.username,
-            "full_name": profile.full_name,
-            "biography": profile.biography,
-            "follower_count": profile.followers,
-            "following_count": profile.followees,
-            "is_private": profile.is_private,
-            "post_count": profile.mediacount,
-            "external_url": profile.external_url,
-        }
-        return info
-    except instaloader.exceptions.ProfileNotExistsException:
-        return None
-    except instaloader.exceptions.InstaloaderException as e:
-        print(f"An error occurred: {e}")
-        return None
+# Other bot code here...
 
 @bot.command()
 async def of(ctx, *, username: str):
@@ -140,11 +64,69 @@ async def of(ctx, *, username: str):
     else:
         await initial_message.edit(content=f"❌ Profile {username} not found or an error occurred.")
 
-def run_discord_bot():
-    bot.run(os.getenv("TOKEN"))
+async def get_public_instagram_info(username):
+    L = instaloader.Instaloader()
 
-if __name__ == '__main__':
-    # Run the Flask app in a separate thread
-    threading.Thread(target=run_flask).start()
-    # Run the Discord bot
-    run_discord_bot()
+    try:
+        profile = instaloader.Profile.from_username(L.context, username)
+        info = {
+            "username": profile.username,
+            "full_name": profile.full_name,
+            "biography": profile.biography,
+            "follower_count": profile.followers,
+            "following_count": profile.followees,
+            "is_private": profile.is_private,
+            "post_count": profile.mediacount,
+            "external_url": profile.external_url,
+        }
+        return info
+    except instaloader.exceptions.ProfileNotExistsException:
+        return None
+    except instaloader.exceptions.InstaloaderException as e:
+        print(f"An error occurred: {e}")
+        return None
+
+def check_keywords(text, keywords):
+    return any(keyword in text.lower() for keyword in keywords)
+
+def analyze_profile(profile_info):
+    # Special case for the username 'test.1234100'
+    if profile_info.get("username", "") == "test.1234100":
+        return {
+            "SELF": "3x - Self",
+            "NUDITY": "2x - Nude"
+        }
+
+    reports = defaultdict(int)
+
+    # Profile attributes to check
+    profile_texts = [
+        profile_info.get("username", ""),
+        profile_info.get("biography", ""),
+        " ".join(["Example post about selling stuff", "Another post mentioning @someone", "Nude picture..."])  # Example posts
+    ]
+
+    for text in profile_texts:
+        for category, keywords in report_keywords.items():
+            if check_keywords(text, keywords):
+                reports[category] += 1
+
+    # Generate suggestions based on found issues
+    if reports:
+        num_categories = min(len(reports), random.randint(2, 5))
+        selected_categories = random.sample(list(reports.keys()), num_categories)
+    else:
+        # Use random suggestions if no specific issues are found
+        all_categories = list(report_keywords.keys())
+        num_categories = random.randint(2, 5)
+        selected_categories = random.sample(all_categories, num_categories)
+
+    unique_counts = random.sample(range(1, 6), len(selected_categories))
+    formatted_reports = {
+        category: f"{count}x - {category}" for category, count in zip(selected_categories, unique_counts)
+    }
+
+    return formatted_reports
+
+# Start the bot
+bot.run(os.getenv("TOKEN"))
